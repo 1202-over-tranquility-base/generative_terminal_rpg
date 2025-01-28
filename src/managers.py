@@ -1,6 +1,13 @@
 import json
 # If you have an LLM library (e.g., openai), import it here
 
+import os
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
+sys.path.insert(0, parent_dir)
+from submodules.query_llm.src.query_llm import LLMRequest, call_openai_llm
+
 class LLMEngine:
     def __init__(self, model_name="some-llm-model"):
         self.model_name = model_name
@@ -15,29 +22,16 @@ class LLMEngine:
             f"- setting_text\n"
             f"- explanation_text\n"
             f"- options (each option has 'description', 'inventory_modification', 'health_modification')\n"
+            f"Return **only** JSON text; no extra text (such as code blocks)"
         )
-        # Placeholder logic. Replace with actual LLM API call
-        # response = openai.Completion.create(...)  # etc.
-        # For now, pretend we got a JSON string back:
-        fake_json_response = """
-        {
-            "setting_text": "You step into a dimly lit hut.",
-            "explanation_text": "It smells musty. You notice a simple table with a few items.",
-            "options": [
-                {
-                    "description": "Look around the hut.",
-                    "inventory_modification": [],
-                    "health_modification": 0
-                },
-                {
-                    "description": "Leave the hut quietly.",
-                    "inventory_modification": [],
-                    "health_modification": 0
-                }
-            ]
-        }
-        """
-        return json.loads(fake_json_response)
+        request = LLMRequest(
+            input_text=prompt,
+            log_input_file="/home/user/Desktop/input.md",
+            log_output_file="/home/user/Desktop/output.md",
+            model="gpt-4o-mini"
+        )
+        response = call_openai_llm(request)
+        return json.loads(response)
 
 class InteractWithPlayer:
     def show_text(self, text):
