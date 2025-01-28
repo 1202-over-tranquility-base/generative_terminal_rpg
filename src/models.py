@@ -1,5 +1,5 @@
 class CharacterStats:
-    def __init__(self, health=100):
+    def __init__(self, health=5):
         self.health = health
 
 class Option:

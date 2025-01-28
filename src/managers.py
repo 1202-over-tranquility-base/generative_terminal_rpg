@@ -18,11 +18,15 @@ class LLMEngine:
             f"Context: {broad_context}\n"
             f"Story so far: {story_log}\n"
             f"The player just chose: {last_choice}\n"
-            f"Provide the next scene in JSON with:\n"
-            f"- setting_text\n"
-            f"- explanation_text\n"
-            f"- options (each option has 'description', 'inventory_modification', 'health_modification')\n"
-            f"Return **only** JSON text; no extra text (such as code blocks)"
+            f"Provide the next scene in JSON with the following structure:\n"
+            f"- `setting_text`: string\n"
+            f"- `explanation_text`: string\n"
+            f"- `options`: list of objects, each with:\n"
+            f"  - `description`: string\n"
+            f"  - `inventory_modification`: list of strings\n"
+            f"  - `health_modification`: integer (use negative numbers for reductions, positive without a plus sign)\n"
+            f"Ensure the JSON is properly formatted without any trailing commas or invalid characters.\n"
+            f"Return **only** JSON text; no extra text (such as code blocks)."
         )
         request = LLMRequest(
             input_text=prompt,

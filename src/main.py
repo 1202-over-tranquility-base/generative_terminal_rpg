@@ -39,6 +39,7 @@ class Game:
             self.load_next_scene("Dark fantasy continuing the story", chosen_option.description)
 
     def display_scene(self):
+        self.player_interaction.show_text(f"Current health at: {self.character_stats.health}")
         self.player_interaction.show_text(self.current_scene.setting_text)
         self.player_interaction.show_text(self.current_scene.explanation_text)
         self.current_scene.show_options()
