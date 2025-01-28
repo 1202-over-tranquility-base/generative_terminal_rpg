@@ -1,0 +1,3 @@
+[submodule "submodules/query_llm"]
+	path = submodules/query_llm
+	url = https://github.com/1202-over-tranquility-base/query_llm
