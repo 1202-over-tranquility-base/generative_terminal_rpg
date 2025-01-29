@@ -8,7 +8,7 @@ sys.path.insert(0, parent_dir)
 from submodules.query_llm.src.query_llm import LLMRequest, call_openai_llm
 
 class LLMEngine:
-    def __init__(self, model_name="gpt-4o-mini"):
+    def __init__(self, model_name="gpt-4o"):
         self.model_name = model_name
 
     def generate_path_scene(self, path_context, story_so_far, path_scene_count, target_node_desc):
@@ -23,7 +23,10 @@ class LLMEngine:
             f"Provide a scene in JSON with:\n"
             f"- setting_text\n"
             f"- explanation_text\n"
-            f"- options (list of objects with 'description', 'inventory_modification', 'health_modification').\n"
+            f"- options: list of objects, each with:\n"
+            f"  - description: string\n"
+            f"  - inventory_modification: list of strings\n"
+            f"  - health_modification: integer (use negative numbers for reductions, positive without a plus sign)\n"
             f"Ensure the JSON is properly formatted without any trailing commas or invalid characters.\n"
             f"Return **only** JSON text; no extra text (such as code blocks)."
         )
