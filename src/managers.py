@@ -13,12 +13,11 @@ class LLMEngine:
 
     def generate_path_scene(self, path_context, story_so_far, path_scene_count, target_node_desc):
         prompt = (
-            f"You are generating a relaxed transition scene in a branching RPG.\n"
-            f"You are trying to gently lead the player to a more interesting node, which will happen over the course of a few scenes.\n"
-            f"Very minor events will occur along the way. Your job is to make it feel like the character is naturally travelling between the origin and target.\n"
+            f"You are generating a scene in a branching RPG as the character travels from one area of interest to another, which will happen over the course of a number of scenes.\n"
+            f"Your job is to make it feel like the character is naturally travelling between the origin and target, and should therefore be a bit on the dull side.\n"
+            f"There have been {path_scene_count} scenes generated on this path so far. The goal for the character to arrive at the target within a total of roughly 4-7 scenes.\n"
             f"Path context: {path_context}\n"
             f"Story so far: {story_so_far}\n"
-            f"Number of path scenes so far: {path_scene_count} (aim for around 4-7 total, but this can go longer if the character is in the middle of something)\n"
             f"Target node description: {target_node_desc}\n"
             f"Provide a scene in JSON with:\n"
             f"- setting_text\n"

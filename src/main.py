@@ -37,7 +37,7 @@ class Game:
         while True:
             if path.scenes_completed > 6:
                 break
-            origin_desc = origin_node.description if origin_node else "Starting Point"
+            origin_desc = origin_node.description if origin_node else f"The player just started a new game with the name {self.act.name}"
             data = self.llm_engine.generate_path_scene(
                 path_context=f"From {origin_desc}",
                 story_so_far=" ".join(self.story_log),
