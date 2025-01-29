@@ -1,41 +1,67 @@
 import json
-# If you have an LLM library (e.g., openai), import it here
-
 import os
 import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 sys.path.insert(0, parent_dir)
+
 from submodules.query_llm.src.query_llm import LLMRequest, call_openai_llm
 
 class LLMEngine:
-    def __init__(self, model_name="some-llm-model"):
+    def __init__(self, model_name="gpt-4o-mini"):
         self.model_name = model_name
 
-    def generate_scene(self, broad_context, story_log, last_choice):
+    def generate_path_scene(self, path_context, story_so_far, path_scene_count, target_node_desc):
         prompt = (
-            f"You are designing a scene in a branching RPG.\n"
-            f"Context: {broad_context}\n"
-            f"Story so far: {story_log}\n"
-            f"The player just chose: {last_choice}\n"
-            f"Provide the next scene in JSON with the following structure:\n"
-            f"- `setting_text`: string\n"
-            f"- `explanation_text`: string\n"
-            f"- `options`: list of objects, each with:\n"
-            f"  - `description`: string\n"
-            f"  - `inventory_modification`: list of strings\n"
-            f"  - `health_modification`: integer (use negative numbers for reductions, positive without a plus sign)\n"
+            f"You are generating a relaxed transition scene in a branching RPG.\n"
+            f"Path context: {path_context}\n"
+            f"Story so far: {story_so_far}\n"
+            f"Number of path scenes so far: {path_scene_count} (aim for around 4-7 total)\n"
+            f"Target node description: {target_node_desc}\n"
+            f"Provide a scene in JSON with:\n"
+            f"- setting_text\n"
+            f"- explanation_text\n"
+            f"- options (list of objects with 'description', 'inventory_modification', 'health_modification').\n"
             f"Ensure the JSON is properly formatted without any trailing commas or invalid characters.\n"
             f"Return **only** JSON text; no extra text (such as code blocks)."
         )
-        request = LLMRequest(
-            input_text=prompt,
-            log_input_file="/home/user/Desktop/input.md",
-            log_output_file="/home/user/Desktop/output.md",
-            model="gpt-4o-mini"
+        req = LLMRequest(input_text=prompt, log_input_file="/home/user/Desktop/path_input.md",
+                         log_output_file="/home/user/Desktop/path_output.md", model=self.model_name)
+        resp = call_openai_llm(req)
+        return json.loads(resp)
+
+    def generate_node_discoveries(self, node_description):
+        prompt = (
+            f"Given the node description:\n"
+            f"{node_description}\n"
+            f"Generate a short list (in JSON) of interesting discoveries.\n"
+            f"Each item should be a concise string.\n"
+            f"Ensure the JSON is properly formatted without any trailing commas or invalid characters.\n"
+            f"Return **only** JSON text; no extra text (such as code blocks)."
         )
-        response = call_openai_llm(request)
-        return json.loads(response)
+        req = LLMRequest(input_text=prompt, log_input_file="/home/user/Desktop/node_disc_input.md",
+                         log_output_file="/home/user/Desktop/node_disc_output.md", model=self.model_name)
+        resp = call_openai_llm(req)
+        return json.loads(resp)
+
+    def generate_node_scene(self, node_context, story_so_far, node_scene_count, possible_discoveries):
+        prompt = (
+            f"You are generating a more engaging scene in a branching RPG.\n"
+            f"Node context: {node_context}\n"
+            f"Story so far: {story_so_far}\n"
+            f"Number of node scenes so far: {node_scene_count} (somewhere around 4-7 total)\n"
+            f"Possible discoveries: {possible_discoveries}\n"
+            f"Return a scene in JSON with:\n"
+            f"- setting_text\n"
+            f"- explanation_text (hint at the possible discoveries)\n"
+            f"- options (objects with 'description', 'inventory_modification', 'health_modification').\n"
+            f"Ensure the JSON is properly formatted without any trailing commas or invalid characters.\n"
+            f"Return **only** JSON text; no extra text (such as code blocks)."
+        )
+        req = LLMRequest(input_text=prompt, log_input_file="/home/user/Desktop/node_scene_input.md",
+                         log_output_file="/home/user/Desktop/node_scene_output.md", model=self.model_name)
+        resp = call_openai_llm(req)
+        return json.loads(resp)
 
 class InteractWithPlayer:
     def show_text(self, text):
