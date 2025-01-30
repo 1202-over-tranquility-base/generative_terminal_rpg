@@ -35,7 +35,7 @@ class Game:
     def play_path(self, origin_node, target_node):
         path = Path(origin_node, target_node)
         while True:
-            if path.scenes_completed > 6:
+            if path.scenes_completed > 15:
                 break
             origin_desc = origin_node.description if origin_node else f"The player just started a new game with the name {self.act.name}"
             data = self.llm_engine.generate_path_scene(
@@ -53,13 +53,23 @@ class Game:
             self.apply_option_effects(chosen_option)
             self.story_log.append(f"Player on path chose: {chosen_option.description}")
             path.scenes_completed += 1
+
+            # Handle transition based on the flag
+            if chosen_option.transition_flag:
+                if chosen_option.transition_flag == "path-node_transition":
+                    self.player_io.show_text("Transitioning to the Node...")
+                    break  # Exit path to move to node
+                elif chosen_option.transition_flag == "continue_path":
+                    continue  # Continue on the current path
+                # Add more transition cases if needed
+
             if "move on" in chosen_option.description.lower():
                 break
 
     def play_node(self, node):
         node.discoveries = self.llm_engine.generate_node_discoveries(node.description)
         while True:
-            if node.scenes_completed > 6:
+            if node.scenes_completed > 15:
                 break
             data = self.llm_engine.generate_node_scene(
                 node_context=node.description,
@@ -76,6 +86,16 @@ class Game:
             self.apply_option_effects(chosen_option)
             self.story_log.append(f"Player at node {node.name} chose: {chosen_option.description}")
             node.scenes_completed += 1
+
+            # Handle transition based on the flag
+            if chosen_option.transition_flag:
+                if chosen_option.transition_flag == "path-node_transition":
+                    self.player_io.show_text("Transitioning to a new path...")
+                    break  # Exit node to move to path
+                elif chosen_option.transition_flag == "continue_node":
+                    continue  # Continue on the current node
+                # Add more transition cases if needed
+
             if "leave" in chosen_option.description.lower():
                 break
 
@@ -84,8 +104,9 @@ class Game:
         for opt in data.get("options", []):
             option = Option(
                 description=opt["description"],
-                inventory_mod=opt["inventory_modification"],
-                health_mod=opt["health_modification"]
+                inventory_mod=opt.get("inventory_modification", []),
+                health_mod=opt.get("health_modification", 0),
+                transition_flag=opt.get("transition_flag")  # Capture the transition flag
             )
             options.append(option)
         return Scene(data.get("setting_text", ""),

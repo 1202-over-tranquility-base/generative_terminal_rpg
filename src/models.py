@@ -3,10 +3,11 @@ class CharacterStats:
         self.health = health
 
 class Option:
-    def __init__(self, description, inventory_mod=(), health_mod=0):
+    def __init__(self, description, inventory_mod=(), health_mod=0, transition_flag=None):
         self.description = description
         self.inventory_mod = inventory_mod
         self.health_mod = health_mod
+        self.transition_flag = transition_flag  # New attribute for transition flags
 
 class Scene:
     def __init__(self, setting_text, explanation_text, options):

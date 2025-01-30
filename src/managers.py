@@ -15,9 +15,11 @@ class LLMEngine:
         prompt = (
             f"You are generating a scene in a branching RPG as the character travels from one area of interest to another, which will happen over the course of a number of scenes.\n"
             f"Your job is to make it feel like the character is naturally travelling between the origin and target, and should therefore be a bit on the dull side.\n"
-            f"There have been {path_scene_count} scenes generated on this path so far. The goal for the character to arrive at the target within a total of roughly 4-7 scenes.\n"
-            f"Path context: {path_context}\n"
+            f"Consider the following overview of the context and story so far:\n"
+            f"Node context: {path_context}\n"
             f"Story so far: {story_so_far}\n"
+            f"There have been {path_scene_count} scenes generated on this path so far. The goal for the character to arrive at the target within a total of roughly 2-3 scenes.\n"
+            f"When you feel like it's a good time, have the character discover the Node and edit the transition_flag accordingly.\n"
             f"Target node description: {target_node_desc}\n"
             f"Provide a scene in JSON with:\n"
             f"- setting_text\n"
@@ -26,6 +28,7 @@ class LLMEngine:
             f"  - description: string\n"
             f"  - inventory_modification: list of strings\n"
             f"  - health_modification: integer (use negative numbers for reductions, positive without a plus sign)\n"
+            f"  - transition_flag: string ('continue_path' or 'path-node_transition')\n"  # Added instruction for transition_flag
             f"Ensure the JSON is properly formatted without any trailing commas or invalid characters.\n"
             f"Return **only** JSON text; no extra text (such as code blocks)."
         )
@@ -50,15 +53,22 @@ class LLMEngine:
 
     def generate_node_scene(self, node_context, story_so_far, node_scene_count, possible_discoveries):
         prompt = (
-            f"You are generating a more engaging scene in a branching RPG.\n"
+            f"You are generating a scene in a branching RPG, in the middle of an ongoing situation.\n"
+            f"Consider the following overview of the context and story so far:\n"
             f"Node context: {node_context}\n"
             f"Story so far: {story_so_far}\n"
-            f"Number of node scenes so far: {node_scene_count} (somewhere around 4-7 total)\n"
+            f"You can have the player meander through this situation, and vaguely hint at a number of possible discoveries:\n"
             f"Possible discoveries: {possible_discoveries}\n"
+            f"There have been {node_scene_count} scenes generated in this Node so far. The goal for the character to arrive at the target within a total of roughly 5-8 scenes.\n"
+            f"When you feel like it's a good time, have the character exit the situation and edit the transition_flag accordingly.\n"
             f"Return a scene in JSON with:\n"
             f"- setting_text\n"
             f"- explanation_text (hint at the possible discoveries)\n"
-            f"- options (objects with 'description', 'inventory_modification', 'health_modification').\n"
+            f"- options: list of objects, each with:\n"
+            f"  - description: string\n"
+            f"  - inventory_modification: list of strings\n"
+            f"  - health_modification: integer (use negative numbers for reductions, positive without a plus sign)\n"
+            f"  - transition_flag: string ('continue_node' or 'path-node_transition')\n"  # Added instruction for transition_flag
             f"Ensure the JSON is properly formatted without any trailing commas or invalid characters.\n"
             f"Return **only** JSON text; no extra text (such as code blocks)."
         )
