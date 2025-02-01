@@ -1,56 +1,76 @@
-from models import Scene, Option, CharacterStats
-from managers import LLMEngine, InteractWithPlayer
+from models import CharacterStats
+from node_manager import NodeManager
 
-class Game:
-    def __init__(self):
-        self.story_log = []
-        self.character_stats = CharacterStats()
-        self.llm_engine = LLMEngine()
-        self.player_interaction = InteractWithPlayer()
-        self.current_scene = None
+def main():
+    # Initialize the player's stats and the world (graph) of nodes.
+    player_stats = CharacterStats(health=5)
+    node_manager = NodeManager()
+    current_node_id = "cabin_interior"
 
-    def build_scene_from_json(self, data):
-        options = []
-        for opt in data["options"]:
-            option = Option(
-                description=opt["description"],
-                inventory_mod=opt["inventory_modification"],
-                health_mod=opt["health_modification"]
-            )
-            options.append(option)
-        return Scene(data["setting_text"], data["explanation_text"], options)
+    while True:
+        # Retrieve current node's attributes
+        node_data = node_manager.get_node(current_node_id)
+        if node_data is None:
+            print(f"Error: Node '{current_node_id}' does not exist.")
+            break
 
-    def run(self):
-        self.story_log.append("You wake up in a strange place.")
-        self.load_next_scene("Dark fantasy in a forest clearing", "")
+        scene = node_data["scene"]
+        coords = node_data["coords"]
+        objects = node_data["objects"]
 
-        while True:
-            self.display_scene()
-            if self.character_stats.health <= 0 or not self.current_scene.options:
-                print("Your journey ends here.")
-                break
-            chosen_option_index = self.player_interaction.receive_option_selection(len(self.current_scene.options))
-            chosen_option = self.current_scene.options[chosen_option_index - 1]
-            self.apply_option_effects(chosen_option)
-            self.story_log.append(f"Player chose: {chosen_option.description}")
-            if "go to sleep" in chosen_option.description.lower():
-                print("You drift off, ending your adventure.")
-                break
-            self.load_next_scene("Dark fantasy continuing the story", chosen_option.description)
+        # Display location, player health, and narrative text
+        print("\n" + "=" * 50)
+        print(f"Location: {current_node_id}  |  Coordinates: {coords}")
+        print(f"Health: {player_stats.health}\n")
+        print(scene.setting_text)
+        print(scene.explanation_text)
 
-    def display_scene(self):
-        self.player_interaction.show_text(f"Current health at: {self.character_stats.health}")
-        self.player_interaction.show_text(self.current_scene.setting_text)
-        self.player_interaction.show_text(self.current_scene.explanation_text)
-        self.current_scene.show_options()
+        # List any objects present in the node
+        if objects:
+            print("\nYou notice the following objects:")
+            for obj in objects.values():
+                print(f" - {obj.description}")
 
-    def apply_option_effects(self, option):
-        self.character_stats.health += option.health_mod
+        # List available options
+        print("\nAvailable actions:")
+        for idx, option in enumerate(scene.options):
+            print(f" {idx + 1}. {option.description}")
 
-    def load_next_scene(self, broad_context, last_choice):
-        data = self.llm_engine.generate_scene(broad_context, " ".join(self.story_log), last_choice)
-        self.current_scene = self.build_scene_from_json(data)
+        # Get player's choice (or quit)
+        choice = input("\nChoose an option (or type 'q' to quit): ").strip()
+        if choice.lower() == "q":
+            print("Exiting game. Goodbye!")
+            break
+
+        try:
+            choice = int(choice)
+        except ValueError:
+            print("Invalid input. Please enter a number corresponding to an option.")
+            continue
+
+        if not (1 <= choice <= len(scene.options)):
+            print("Choice out of range. Try again.")
+            continue
+
+        selected_option = scene.options[choice - 1]
+
+        # Apply any health modification from the option.
+        player_stats.health += selected_option.health_mod
+        if player_stats.health <= 0:
+            print("Your health has reached 0. Game over!")
+            break
+
+        # Process special interactions: for instance, using the boat.
+        if "boat" in selected_option.description.lower():
+            if "boat" in objects:
+                node_manager.move_object("boat", selected_option.target_node)
+                print("You use the boat to cross the river. The boat is now on the other side.")
+            else:
+                print("The boat is not here!")
+                continue
+
+        # Transition to the target node.
+        current_node_id = selected_option.target_node
 
 if __name__ == "__main__":
-    game = Game()
-    game.run()
+    main()

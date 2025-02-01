@@ -3,11 +3,11 @@ class CharacterStats:
         self.health = health
 
 class Option:
-    def __init__(self, description, inventory_mod=(), health_mod=0):
+    def __init__(self, description, target_node, health_mod=0, inventory_mod=None):
         self.description = description
-        self.inventory_mod = inventory_mod
+        self.target_node = target_node
         self.health_mod = health_mod
-        self.next_scene = None
+        self.inventory_mod = inventory_mod if inventory_mod is not None else []
 
 class Scene:
     def __init__(self, setting_text, explanation_text, options):
@@ -15,6 +15,8 @@ class Scene:
         self.explanation_text = explanation_text
         self.options = options
 
-    def show_options(self):
-        for i, option in enumerate(self.options):
-            print(f"{i+1}. {option.description}")
+class GameObject:
+    def __init__(self, object_id, description, current_node):
+        self.object_id = object_id
+        self.description = description
+        self.current_node = current_node
