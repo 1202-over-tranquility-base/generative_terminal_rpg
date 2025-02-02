@@ -5,7 +5,12 @@ def main():
     # Initialize the player's stats and the world (graph) of nodes.
     player_stats = CharacterStats(health=5)
     node_manager = NodeManager()
-    current_node_id = "cabin_interior"
+
+    # Start at a scene identified by its fully qualified id.
+    current_node_id = node_manager.get_node_id_by_alias("cabin.interior")
+    if not current_node_id:
+        print("Error: Starting scene 'cabin.interior' not found.")
+        return
 
     while True:
         # Retrieve current node's attributes
