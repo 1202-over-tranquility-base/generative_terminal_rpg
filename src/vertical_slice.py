@@ -22,6 +22,7 @@ def generate_procedural_nodes(current_node, world, current_day):
         if generated_count >= 2:
             break
         new_coords = (current_node.coords[0] + dx, current_node.coords[1] + dy)
+        
         # Only create a node if there is no node at these coordinates.
         if any(node.coords == new_coords for node in world.nodes.values()):
             continue
@@ -37,61 +38,109 @@ def generate_procedural_nodes(current_node, world, current_day):
                 description=description
             )
             new_node.created_day = current_day
-            new_node.persistent = True  # Mark notable nodes to persist.
+            
+            # Mark notable nodes to persist.
+            new_node.persistent = True
             world.add_node(new_node)
             connection_info = {"path": "overgrown trail"}
             world.connect_nodes(current_node.node_id, new_node.node_id, connection_info, bidirectional=True)
             print(f"\n[Procedural Generation] A new location '{new_node.name}' has been revealed at {new_coords}!")
             generated_count += 1
 
-def create_region():
+def generate_path_between_nodes(node_a, node_b, world, path_type="road"):
+    # Create a few intermediate nodes between node_a and node_b
+    steps = 3
+    ax, ay = node_a.coords
+    bx, by = node_b.coords
+    dx = (bx - ax) / (steps + 1)
+    dy = (by - ay) / (steps + 1)
+    previous_node = node_a
+    for i in range(1, steps + 1):
+        new_x = round(ax + i * dx)
+        new_y = round(ay + i * dy)
+        new_coords = (new_x, new_y)
+        
+        # If a node already exists at these coordinates, link to it.
+        existing = next((node for node in world.nodes.values() if node.coords == new_coords), None)
+        if existing:
+            if existing.node_id not in previous_node.neighbors:
+                world.connect_nodes(previous_node.node_id, existing.node_id, connection_info={"path": path_type}, bidirectional=True)
+            previous_node = existing
+            continue
+        
+        node_id = f"node.secondary.{len(world.nodes)}"
+        names = ["Road Outpost", "Small Village", "Watchtower", "Rest Stop"]
+        name = random.choice(names)
+        description = f"A {name.lower()} along the {path_type} connecting {node_a.name} and {node_b.name}."
+        new_node = SceneNode(
+            node_id=node_id,
+            name=name,
+            coords=new_coords,
+            description=description
+        )
+        new_node.created_day = 0
+        new_node.persistent = True
+        world.add_node(new_node)
+        world.connect_nodes(previous_node.node_id, new_node.node_id, connection_info={"path": path_type}, bidirectional=True)
+        previous_node = new_node
+    
+    world.connect_nodes(previous_node.node_id, node_b.node_id, connection_info={"path": path_type}, bidirectional=True)
+
+def create_macro_world():
     world = WorldMap()
     
-    entrance = SceneNode(
-        node_id="node.entrance",
-        name="Entrance",
-        coords=(0, 0),
-        description="You stand at the entrance of a mysterious realm."
-    )
-    clearing = SceneNode(
-        node_id="node.clearing",
-        name="Clearing",
-        coords=(1, 0),
-        description="A quiet clearing with soft grass and gentle sunlight."
-    )
-    forest = SceneNode(
-        node_id="node.forest",
-        name="Forest",
-        coords=(1, 1),
-        description="Dense trees and winding paths create an eerie ambiance."
-    )
-    riverbank = SceneNode(
-        node_id="node.riverbank",
-        name="Riverbank",
-        coords=(0, 1),
-        description="The sound of trickling water fills the air along the riverbank."
-    )
-    hilltop = SceneNode(
-        node_id="node.hilltop",
-        name="Hilltop",
-        coords=(-1, 0),
-        description="From this elevated spot, the landscape unfolds before you."
-    )
+    # Define a few regions with centers and boundaries.
+    regions = [
+        {"name": "Northern Realm", "center": (10, 10), "bounds": ((5, 5), (15, 15))},
+        {"name": "Southern Lands", "center": (-10, -10), "bounds": ((-15, -15), (-5, -5))},
+        {"name": "Eastern Expanse", "center": (20, -10), "bounds": ((15, -15), (25, -5))}
+    ]
+    major_nodes = []
+    for region in regions:
+        region_name = region["name"]
+        (min_bound, max_bound) = region["bounds"]
+        min_x, min_y = min_bound
+        max_x, max_y = max_bound
+        
+        # Create two major nodes per region.
+        for i in range(2):
+            x = random.randint(min_x, max_x)
+            y = random.randint(min_y, max_y)
+            node_id = f"node.major.{len(world.nodes)}"
+            name = f"{region_name} City {i+1}"
+            description = f"A bustling city in the {region_name.lower()}."
+            node = SceneNode(
+                node_id=node_id,
+                name=name,
+                coords=(x, y),
+                description=description
+            )
+            node.created_day = 0
+            node.persistent = True
+            world.add_node(node)
+            major_nodes.append(node)
     
-    # Mark initial (notable) nodes as persistent.
-    for node in [entrance, clearing, forest, riverbank, hilltop]:
-        node.persistent = True
-        world.add_node(node)
+    # Connect the two nodes in each region with a major road and scatter secondary nodes along the way.
+    for i in range(0, len(major_nodes), 2):
+        node_a = major_nodes[i]
+        node_b = major_nodes[i+1]
+        world.connect_nodes(node_a.node_id, node_b.node_id, connection_info={"path": "major road"}, bidirectional=True)
+        generate_path_between_nodes(node_a, node_b, world, path_type="major road")
     
-    world.connect_nodes("node.entrance", "node.clearing", connection_info={"path": "dirt road"})
-    world.connect_nodes("node.clearing", "node.forest", connection_info={"path": "winding path"})
-    world.connect_nodes("node.entrance", "node.riverbank", connection_info={"path": "forest trail"})
-    world.connect_nodes("node.entrance", "node.hilltop", connection_info={"path": "steep slope"})
+    # Connect regions by linking the first major node of each region.
+    if len(major_nodes) >= 3:
+        world.connect_nodes(major_nodes[0].node_id, major_nodes[2].node_id, connection_info={"path": "inter-region highway"}, bidirectional=True)
+        generate_path_between_nodes(major_nodes[0], major_nodes[2], world, path_type="inter-region highway")
+        world.connect_nodes(major_nodes[2].node_id, major_nodes[4].node_id, connection_info={"path": "inter-region highway"}, bidirectional=True)
+        generate_path_between_nodes(major_nodes[2], major_nodes[4], world, path_type="inter-region highway")
     
-    return world, entrance
+    # Start at the first major node.
+    starting_node = major_nodes[0]
+    return world, starting_node
 
 def main():
-    world, starting_node = create_region()
+    # Switch to macro-level integration by using create_macro_world().
+    world, starting_node = create_macro_world()
     player = Player(starting_node)
     
     while True:
@@ -100,8 +149,6 @@ def main():
         print(f"You are at: {player.current_node.name}")
         print(player.current_node.description)
         print("\nPaths available:")
-        
-        # List neighbors. If the destination hasn't been discovered yet, hide its name.
         neighbors = list(player.current_node.neighbors.items())
         for idx, (neighbor_id, info) in enumerate(neighbors, 1):
             neighbor = world.get_node(neighbor_id)
@@ -125,16 +172,13 @@ def main():
                 continue
             selected_neighbor_id, _ = neighbors[choice_index]
             next_node = world.get_node(selected_neighbor_id)
-            
             if random.random() < 0.3:
                 print("\n[Random Event] " + random_event())
-            
             player.move_to(next_node)
             generate_procedural_nodes(player.current_node, world, player.current_day)
-            # Remove any nodes that haven't been visited in over 5 in-game days.
             world.prune_old_nodes(player.current_day, decay_threshold=5)
         except ValueError:
             print("Please enter a valid number or 'm' for map.")
-            
+
 if __name__ == "__main__":
     main()
