@@ -10,10 +10,10 @@ def random_event():
     ]
     return random.choice(events)
 
-def generate_procedural_nodes(current_node, world):
+def generate_procedural_nodes(current_node, world, current_day):
     """
-    Procedurally generate 1–2 notable nodes adjacent to the current node.
-    The nodes are placed in one of the four cardinal directions if that location is empty.
+    Generate 1–2 notable nodes adjacent to the current node.
+    These nodes are placed (if the location is empty) and flagged as persistent.
     """
     directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
     random.shuffle(directions)
@@ -22,10 +22,9 @@ def generate_procedural_nodes(current_node, world):
         if generated_count >= 2:
             break
         new_coords = (current_node.coords[0] + dx, current_node.coords[1] + dy)
-        # Check if any node already occupies these coordinates.
+        # Only create a node if there is no node at these coordinates.
         if any(node.coords == new_coords for node in world.nodes.values()):
             continue
-        # With 50% chance, generate a new notable node.
         if random.random() < 0.5:
             notable_names = ["Abandoned Cabin", "Hidden Grove", "Mystic Ruins", "Forgotten Shrine"]
             name = random.choice(notable_names)
@@ -37,6 +36,8 @@ def generate_procedural_nodes(current_node, world):
                 coords=new_coords,
                 description=description
             )
+            new_node.created_day = current_day
+            new_node.persistent = True  # Mark notable nodes to persist.
             world.add_node(new_node)
             connection_info = {"path": "overgrown trail"}
             world.connect_nodes(current_node.node_id, new_node.node_id, connection_info, bidirectional=True)
@@ -46,7 +47,6 @@ def generate_procedural_nodes(current_node, world):
 def create_region():
     world = WorldMap()
     
-    # Create a small region of 5 nodes.
     entrance = SceneNode(
         node_id="node.entrance",
         name="Entrance",
@@ -78,11 +78,11 @@ def create_region():
         description="From this elevated spot, the landscape unfolds before you."
     )
     
-    # Add nodes to the world.
+    # Mark initial (notable) nodes as persistent.
     for node in [entrance, clearing, forest, riverbank, hilltop]:
+        node.persistent = True
         world.add_node(node)
     
-    # Connect the nodes.
     world.connect_nodes("node.entrance", "node.clearing", connection_info={"path": "dirt road"})
     world.connect_nodes("node.clearing", "node.forest", connection_info={"path": "winding path"})
     world.connect_nodes("node.entrance", "node.riverbank", connection_info={"path": "forest trail"})
@@ -95,23 +95,29 @@ def main():
     player = Player(starting_node)
     
     while True:
-        # Display current location and description.
         print("\n" + "=" * 40)
+        print(f"Day {player.current_day}:")
         print(f"You are at: {player.current_node.name}")
         print(player.current_node.description)
         print("\nPaths available:")
         
-        # List the available neighbors.
+        # List neighbors. If the destination hasn't been discovered yet, hide its name.
         neighbors = list(player.current_node.neighbors.items())
         for idx, (neighbor_id, info) in enumerate(neighbors, 1):
             neighbor = world.get_node(neighbor_id)
-            print(f"{idx}. {neighbor.name} via {info.get('path', 'an unknown path')}")
+            display_name = neighbor.name if neighbor.discovered else "???"
+            print(f"{idx}. {display_name} via {info.get('path', 'an unknown path')}")
+        print("m. Show Map")
         print("0. Exit game")
         
-        choice = input("\nChoose your path (number): ")
+        choice = input("\nChoose your path (number/m): ")
         if choice == "0":
             print("Thanks for playing!")
             break
+        if choice.lower() == "m":
+            print("\n--- World Map ---")
+            world.display_map(player)
+            continue
         try:
             choice_index = int(choice) - 1
             if choice_index < 0 or choice_index >= len(neighbors):
@@ -120,15 +126,15 @@ def main():
             selected_neighbor_id, _ = neighbors[choice_index]
             next_node = world.get_node(selected_neighbor_id)
             
-            # Occasionally trigger a random event.
-            if random.random() < 0.3:  # 30% chance
+            if random.random() < 0.3:
                 print("\n[Random Event] " + random_event())
             
             player.move_to(next_node)
-            # After moving, attempt to generate new nearby nodes.
-            generate_procedural_nodes(player.current_node, world)
+            generate_procedural_nodes(player.current_node, world, player.current_day)
+            # Remove any nodes that haven't been visited in over 5 in-game days.
+            world.prune_old_nodes(player.current_day, decay_threshold=5)
         except ValueError:
-            print("Please enter a valid number.")
+            print("Please enter a valid number or 'm' for map.")
             
 if __name__ == "__main__":
     main()

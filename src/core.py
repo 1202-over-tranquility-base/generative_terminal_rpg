@@ -1,23 +1,17 @@
-# File: src/core.py
-
 class SceneNode:
     def __init__(self, node_id, name, coords, description, data=None):
-        """
-        :param node_id: A unique identifier (e.g., "cabin.interior")
-        :param name: Human-readable name of the location.
-        :param coords: Tuple representing physical coordinates (e.g., (0, 0)).
-        :param description: Narrative description of the scene.
-        :param data: Optional dictionary for additional properties.
-        """
         self.node_id = node_id
         self.name = name
         self.coords = coords
         self.description = description
-        self.neighbors = {}  # Mapping: neighbor_node_id -> connection details (if any)
+        self.neighbors = {}  # neighbor_node_id -> connection info
         self.data = data or {}
+        self.discovered = False
+        self.last_visited = None
+        self.created_day = None
+        self.persistent = False
 
     def add_neighbor(self, neighbor_id, connection_info=None):
-        """Link this node to a neighbor. For now, connection_info can be any metadata."""
         self.neighbors[neighbor_id] = connection_info or {}
 
     def __repr__(self):
@@ -26,25 +20,15 @@ class SceneNode:
 
 class WorldMap:
     def __init__(self):
-        self.nodes = {}  # Mapping: node_id -> SceneNode
+        self.nodes = {}  # node_id -> SceneNode
 
     def add_node(self, scene_node):
-        """Add a new node to the world."""
         self.nodes[scene_node.node_id] = scene_node
 
     def get_node(self, node_id):
-        """Retrieve a node by its unique id."""
         return self.nodes.get(node_id)
 
     def connect_nodes(self, node_id_a, node_id_b, connection_info=None, bidirectional=True):
-        """
-        Create a connection between two nodes.
-        
-        :param node_id_a: ID of the first node.
-        :param node_id_b: ID of the second node.
-        :param connection_info: Optional dictionary describing the link (e.g., "path": "dirt road").
-        :param bidirectional: If True, link both ways.
-        """
         node_a = self.get_node(node_id_a)
         node_b = self.get_node(node_id_b)
         if node_a and node_b:
@@ -52,33 +36,76 @@ class WorldMap:
             if bidirectional:
                 node_b.add_neighbor(node_a.node_id, connection_info)
 
+    def prune_old_nodes(self, current_day, decay_threshold):
+        # Remove nodes that haven't been visited in decay_threshold days (if not persistent)
+        to_remove = []
+        for node_id, node in list(self.nodes.items()):
+            # Use the last interaction time (visited or creation)
+            last_time = node.last_visited if node.last_visited is not None else node.created_day
+            if (not node.persistent and last_time is not None 
+                    and (current_day - last_time > decay_threshold)):
+                to_remove.append(node_id)
+        for node_id in to_remove:
+            # Remove connections pointing to this node
+            for node in self.nodes.values():
+                if node_id in node.neighbors:
+                    del node.neighbors[node_id]
+            del self.nodes[node_id]
+
+    def display_map(self, player):
+        # Show only discovered nodes in a simple grid.
+        discovered_nodes = [node for node in self.nodes.values() if node.discovered]
+        if not discovered_nodes:
+            print("Map is empty.")
+            return
+        xs = [node.coords[0] for node in discovered_nodes]
+        ys = [node.coords[1] for node in discovered_nodes]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        for y in range(max_y, min_y - 1, -1):
+            row = ""
+            for x in range(min_x, max_x + 1):
+                node_here = next((node for node in discovered_nodes if node.coords == (x, y)), None)
+                if node_here:
+                    if node_here.node_id == player.current_node.node_id:
+                        row += " P "  # P for Player’s current location
+                    else:
+                        row += " X "  # X marks a discovered node
+                else:
+                    row += " . "  # Dot means no discovered node here
+            print(row)
+
     def __repr__(self):
         return f"<WorldMap with {len(self.nodes)} nodes>"
 
 
 class Player:
     def __init__(self, starting_node, health=10):
-        """
-        :param starting_node: A SceneNode where the player begins.
-        :param health: The player’s starting health.
-        """
         self.current_node = starting_node
         self.health = health
         self.inventory = []
-        self.discovered_nodes = {starting_node.node_id}  # For fog-of-war tracking.
+        self.discovered_nodes = {starting_node.node_id}
+        self.current_day = 0
+        starting_node.discovered = True
+        starting_node.last_visited = self.current_day
+        if starting_node.created_day is None:
+            starting_node.created_day = self.current_day
 
     def move_to(self, new_node):
-        """Move the player to a new node and mark it as discovered."""
         self.current_node = new_node
         self.discovered_nodes.add(new_node.node_id)
+        new_node.discovered = True
+        self.current_day += 1
+        new_node.last_visited = self.current_day
+        if new_node.created_day is None:
+            new_node.created_day = self.current_day
 
     def __repr__(self):
         return f"<Player at {self.current_node.node_id} with health {self.health}>"
 
 
-# --- Example Usage ---
+# --- Example Usage (for quick testing) ---
 if __name__ == "__main__":
-    # Initialize the world map and a few scene nodes.
     world = WorldMap()
     
     cabin_interior = SceneNode(
@@ -102,19 +129,15 @@ if __name__ == "__main__":
         description="A gentle river flows nearby, its banks inviting exploration."
     )
     
-    # Add nodes to the world.
     world.add_node(cabin_interior)
     world.add_node(cabin_exterior)
     world.add_node(river_side)
     
-    # Connect the nodes (here, using simple connection info to describe the link).
     world.connect_nodes("cabin.interior", "cabin.exterior", connection_info={"path": "wooden door"})
     world.connect_nodes("cabin.exterior", "river.side", connection_info={"path": "narrow dirt trail"})
     
-    # Create a player starting inside the cabin.
     player = Player(starting_node=cabin_interior)
     
-    # Display starting information.
     print(player)
     print("Available paths from current location:")
     for neighbor_id, info in player.current_node.neighbors.items():
