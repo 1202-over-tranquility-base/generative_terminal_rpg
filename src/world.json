@@ -1,0 +1,83 @@
+{
+  "scenes": [
+    {
+      "id": "cabin.interior",
+      "coords": [0, 0],
+      "setting_text": "You wake up in a small, creaking cabin deep in the woods.",
+      "explanation_text": "Morning light streams through the window, heralding the start of your adventure.",
+      "options": [
+        {
+          "description": "Step outside to start the day",
+          "target": "cabin.exterior"
+        }
+      ]
+    },
+    {
+      "id": "cabin.exterior",
+      "coords": [1, 0],
+      "setting_text": "You step outside and are greeted by the wild.",
+      "explanation_text": "A narrow path stretches out before you, inviting exploration.",
+      "options": [
+        {
+          "description": "Travel north along the path",
+          "target": "river.side"
+        },
+        {
+          "description": "Return inside the cabin",
+          "target": "cabin.interior"
+        }
+      ]
+    },
+    {
+      "id": "river.side",
+      "coords": [2, 0],
+      "setting_text": "You arrive at the edge of a gently flowing river.",
+      "explanation_text": "A small boat is tied here, its paint peeling and waiting for use.",
+      "options": [
+        {
+          "description": "Turn back towards the house",
+          "target": "cabin.exterior"
+        },
+        {
+          "description": "Use the boat to cross the river",
+          "target": "river.opposite"
+        }
+      ]
+    },
+    {
+      "id": "river.opposite",
+      "coords": [2, -1],
+      "setting_text": "You stand on the opposite bank of the river.",
+      "explanation_text": "The current rushes behind you, and familiar landmarks hint at home.",
+      "options": [
+        {
+          "description": "Turn back towards the boat",
+          "target": "river.side"
+        },
+        {
+          "description": "Explore another cabin",
+          "target": "cabin2.exterior"
+        }
+      ]
+    },
+    {
+      "id": "cabin2.exterior",
+      "coords": [5, 5],
+      "setting_text": "You approach another cabin.",
+      "explanation_text": "This cabin is different!",
+      "options": [
+        {
+          "description": "Back to the river!",
+          "target": "river.opposite"
+        }
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "object_id": "boat",
+      "description": "A small, creaky boat.",
+      "starting_scene": "river.side"
+    }
+  ]
+}

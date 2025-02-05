@@ -1,130 +1,81 @@
-from managers import LLMEngine, InteractWithPlayer
-from models import CharacterStats, Scene, Option, Act, Node, Path
+from models import CharacterStats
+from node_manager import NodeManager
 
-class Game:
-    def __init__(self):
-        self.story_log = []
-        self.character_stats = CharacterStats()
-        self.llm_engine = LLMEngine()
-        self.player_io = InteractWithPlayer()
-        self.current_scene = None
-        self.act = None
+def main():
+    # Initialize the player's stats and the world (graph) of nodes.
+    player_stats = CharacterStats(health=5)
+    node_manager = NodeManager()
 
-    def run(self):
-        self.setup_act()
-        self.story_log.append("You wake up in a strange place.")
-        while self.act.has_more_nodes():
-            node = self.act.get_current_node()
-            if self.act.current_node_index == 0:
-                self.play_path(None, node)
+    # Start at a scene identified by its fully qualified id.
+    current_node_id = node_manager.get_node_id_by_alias("cabin.interior")
+    if not current_node_id:
+        print("Error: Starting scene 'cabin.interior' not found.")
+        return
+
+    while True:
+        # Retrieve current node's attributes
+        node_data = node_manager.get_node(current_node_id)
+        if node_data is None:
+            print(f"Error: Node '{current_node_id}' does not exist.")
+            break
+
+        scene = node_data["scene"]
+        coords = node_data["coords"]
+        objects = node_data["objects"]
+
+        # Display location, player health, and narrative text
+        print("\n" + "=" * 50)
+        print(f"Location: {current_node_id}  |  Coordinates: {coords}")
+        print(f"Health: {player_stats.health}\n")
+        print(scene.setting_text)
+        print(scene.explanation_text)
+
+        # List any objects present in the node
+        if objects:
+            print("\nYou notice the following objects:")
+            for obj in objects.values():
+                print(f" - {obj.description}")
+
+        # List available options
+        print("\nAvailable actions:")
+        for idx, option in enumerate(scene.options):
+            print(f" {idx + 1}. {option.description}")
+
+        # Get player's choice (or quit)
+        choice = input("\nChoose an option (or type 'q' to quit): ").strip()
+        if choice.lower() == "q":
+            print("Exiting game. Goodbye!")
+            break
+
+        try:
+            choice = int(choice)
+        except ValueError:
+            print("Invalid input. Please enter a number corresponding to an option.")
+            continue
+
+        if not (1 <= choice <= len(scene.options)):
+            print("Choice out of range. Try again.")
+            continue
+
+        selected_option = scene.options[choice - 1]
+
+        # Apply any health modification from the option.
+        player_stats.health += selected_option.health_mod
+        if player_stats.health <= 0:
+            print("Your health has reached 0. Game over!")
+            break
+
+        # Process special interactions: for instance, using the boat.
+        if "boat" in selected_option.description.lower():
+            if "boat" in objects:
+                node_manager.move_object("boat", selected_option.target_node)
+                print("You use the boat to cross the river. The boat is now on the other side.")
             else:
-                prev_node = self.act.nodes[self.act.current_node_index - 1]
-                self.play_path(prev_node, node)
-            self.play_node(node)
-            self.act.move_to_next_node()
-        self.player_io.show_text("Your journey through the Act has ended.")
+                print("The boat is not here!")
+                continue
 
-    def setup_act(self):
-        nodes = [
-            Node("Mysterious Hut", "A small hut in the forest rumored to hold secrets."),
-            Node("Hermit Wizard", "An eccentric wizard who tests travelers' virtue."),
-            Node("Ancient Ruins (Climax)", "A hidden ruin with magical artifacts.")
-        ]
-        self.act = Act("Forest Adventure", nodes)
-
-    def play_path(self, origin_node, target_node):
-        path = Path(origin_node, target_node)
-        while True:
-            if path.scenes_completed > 15:
-                break
-            origin_desc = origin_node.description if origin_node else f"The player just started a new game with the name {self.act.name}"
-            data = self.llm_engine.generate_path_scene(
-                path_context=f"From {origin_desc}",
-                story_so_far=" ".join(self.story_log),
-                path_scene_count=path.scenes_completed,
-                target_node_desc=target_node.description
-            )
-            scene = self.build_scene(data)
-            if not scene.options:
-                break
-            self.display_scene(scene)
-            choice_index = self.player_io.receive_option_selection(len(scene.options))
-            chosen_option = scene.options[choice_index - 1]
-            self.apply_option_effects(chosen_option)
-            self.story_log.append(f"Player on path chose: {chosen_option.description}")
-            path.scenes_completed += 1
-
-            # Handle transition based on the flag
-            if chosen_option.transition_flag:
-                if chosen_option.transition_flag == "path-node_transition":
-                    self.player_io.show_text("Transitioning to the Node...")
-                    break  # Exit path to move to node
-                elif chosen_option.transition_flag == "continue_path":
-                    continue  # Continue on the current path
-                # Add more transition cases if needed
-
-            if "move on" in chosen_option.description.lower():
-                break
-
-    def play_node(self, node):
-        node.discoveries = self.llm_engine.generate_node_discoveries(node.description)
-        while True:
-            if node.scenes_completed > 15:
-                break
-            data = self.llm_engine.generate_node_scene(
-                node_context=node.description,
-                story_so_far=" ".join(self.story_log),
-                node_scene_count=node.scenes_completed,
-                possible_discoveries=node.discoveries
-            )
-            scene = self.build_scene(data)
-            if not scene.options:
-                break
-            self.display_scene(scene)
-            choice_index = self.player_io.receive_option_selection(len(scene.options))
-            chosen_option = scene.options[choice_index - 1]
-            self.apply_option_effects(chosen_option)
-            self.story_log.append(f"Player at node {node.name} chose: {chosen_option.description}")
-            node.scenes_completed += 1
-
-            # Handle transition based on the flag
-            if chosen_option.transition_flag:
-                if chosen_option.transition_flag == "path-node_transition":
-                    self.player_io.show_text("Transitioning to a new path...")
-                    break  # Exit node to move to path
-                elif chosen_option.transition_flag == "continue_node":
-                    continue  # Continue on the current node
-                # Add more transition cases if needed
-
-            if "leave" in chosen_option.description.lower():
-                break
-
-    def build_scene(self, data):
-        options = []
-        for opt in data.get("options", []):
-            option = Option(
-                description=opt["description"],
-                inventory_mod=opt.get("inventory_modification", []),
-                health_mod=opt.get("health_modification", 0),
-                transition_flag=opt.get("transition_flag")  # Capture the transition flag
-            )
-            options.append(option)
-        return Scene(data.get("setting_text", ""),
-                     data.get("explanation_text", ""),
-                     options)
-
-    def display_scene(self, scene):
-        self.player_io.show_text(f"Current health: {self.character_stats.health}")
-        self.player_io.show_text(scene.setting_text)
-        self.player_io.show_text(scene.explanation_text)
-        scene.show_options()
-
-    def apply_option_effects(self, option):
-        self.character_stats.health += option.health_mod
-        if self.character_stats.health <= 0:
-            self.player_io.show_text("You have perished.")
-            exit()
+        # Transition to the target node.
+        current_node_id = selected_option.target_node
 
 if __name__ == "__main__":
-    game = Game()
-    game.run()
+    main()
