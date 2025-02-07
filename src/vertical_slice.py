@@ -23,6 +23,8 @@ def generate_procedural_nodes(current_node, world, current_day):
         if generated_count >= 2:
             break
         new_coords = (current_node.coords[0] + dx, current_node.coords[1] + dy)
+
+        # Only create a node if there is no node at these coordinates.
         if any(node.coords == new_coords for node in world.nodes.values()):
             continue
         if random.random() < 0.5:
@@ -57,6 +59,7 @@ def generate_procedural_nodes(current_node, world, current_day):
             generated_count += 1
 
 def generate_path_between_nodes(node_a, node_b, world, path_type="road"):
+    # Create a few intermediate nodes between node_a and node_b
     steps = 3
     ax, ay = node_a.coords
     bx, by = node_b.coords
@@ -67,6 +70,7 @@ def generate_path_between_nodes(node_a, node_b, world, path_type="road"):
         new_x = round(ax + i * dx)
         new_y = round(ay + i * dy)
         new_coords = (new_x, new_y)
+        # If a node already exists at these coordinates, link to it.
         existing = next((node for node in world.nodes.values() if node.coords == new_coords), None)
         if existing:
             if existing.node_id not in previous_node.neighbors:
@@ -87,6 +91,7 @@ def generate_path_between_nodes(node_a, node_b, world, path_type="road"):
 
 def create_macro_world():
     world = WorldMap()
+    # Define a few regions with centers and boundaries.
     regions = [
         {"name": "Northern Realm", "center": (10, 10), "bounds": ((5, 5), (15, 15))},
         {"name": "Southern Lands", "center": (-10, -10), "bounds": ((-15, -15), (-5, -5))},
@@ -98,6 +103,7 @@ def create_macro_world():
         (min_bound, max_bound) = region["bounds"]
         min_x, min_y = min_bound
         max_x, max_y = max_bound
+        # Create two major nodes per region.
         for i in range(2):
             x = random.randint(min_x, max_x)
             y = random.randint(min_y, max_y)
@@ -109,16 +115,19 @@ def create_macro_world():
             node.persistent = True
             world.add_node(node)
             major_nodes.append(node)
+    # Connect the two nodes in each region with a major road and scatter secondary nodes along the way.
     for i in range(0, len(major_nodes), 2):
         node_a = major_nodes[i]
         node_b = major_nodes[i+1]
         world.connect_nodes(node_a.node_id, node_b.node_id, connection_info={"path": "major road"}, bidirectional=True)
         generate_path_between_nodes(node_a, node_b, world, path_type="major road")
+    # Connect regions by linking the first major node of each region.
     if len(major_nodes) >= 3:
         world.connect_nodes(major_nodes[0].node_id, major_nodes[2].node_id, connection_info={"path": "inter-region highway"}, bidirectional=True)
         generate_path_between_nodes(major_nodes[0], major_nodes[2], world, path_type="inter-region highway")
         world.connect_nodes(major_nodes[2].node_id, major_nodes[4].node_id, connection_info={"path": "inter-region highway"}, bidirectional=True)
         generate_path_between_nodes(major_nodes[2], major_nodes[4], world, path_type="inter-region highway")
+    # Start at the first major node.
     starting_node = major_nodes[0]
     return world, starting_node
 
