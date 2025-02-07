@@ -10,6 +10,8 @@ class SceneNode:
         self.last_visited = None
         self.created_day = None
         self.persistent = False
+        self.hidden = self.data.get("hidden", False)
+        self.terrain = self.data.get("terrain", "plains")
 
     def add_neighbor(self, neighbor_id, connection_info=None):
         self.neighbors[neighbor_id] = connection_info or {}
